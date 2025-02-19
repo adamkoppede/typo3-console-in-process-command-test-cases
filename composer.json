@@ -27,7 +27,8 @@
         },
         "patches": {
             "helhum/typo3-console": {
-                "[BUGFIX] Wrong input stream used in database:import called via PHP-API": "./patches/0001-BUGFIX-Wrong-input-stream-used-in-database-import-ca.patch"
+                "[BUGFIX] Wrong input stream used in database:import called via PHP-API": "./patches/0001-BUGFIX-Wrong-input-stream-used-in-database-import-ca.patch",
+                "[BUGFIX] Fix TypeError in MysqlCommand::__construct()": "./patches/0002-BUGFIX-Fix-TypeError-in-MysqlCommand-__construct.patch"
             }
         }
     },

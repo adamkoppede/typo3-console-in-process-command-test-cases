@@ -9,6 +9,7 @@ use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
+use Symfony\Component\Console\Output\StreamOutput;
 use Throwable;
 use TYPO3\CMS\Core\Console\CommandRegistry;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -44,6 +45,38 @@ final class TestCommand extends Command
         assert(fclose($inputTextStream));
     }
 
+    private function testDatabaseImportWithRedirectedOutput(): void
+    {
+        $sql = 'SELECT username from be_users where username="_cli_";';
+
+        $commandRegistry = GeneralUtility::makeInstance(CommandRegistry::class);
+        $command = $commandRegistry->get('database:import');
+
+        $input = new ArrayInput(['--connection' => 'Default']);
+        $inputStream = fopen('php://temp', 'wb+');
+        assert($inputStream !== false);
+        $inputTextWritePos = 0;
+        while ($inputTextWritePos < strlen($sql)) {
+            $bytesWritten = fwrite($inputStream, substr($sql, $inputTextWritePos));
+            assert($bytesWritten !== false);
+            $inputTextWritePos += $bytesWritten;
+        }
+        assert(rewind($inputStream));
+        $input->setStream($inputStream);
+
+        $outputStream = fopen('php://temp', 'wb+');
+        assert($outputStream !== false);
+
+        $exitCode = $command->run($input, new StreamOutput($outputStream));
+        assert($exitCode === Command::SUCCESS);
+        $output = stream_get_contents($outputStream, null, 0);
+        assert($output !== false);
+        assert('_cli_' === trim($output));
+
+        assert(fclose($inputStream));
+        assert(fclose($outputStream));
+    }
+
     /**
      * @return Command::SUCCESS|Command::FAILURE|Command::INVALID
      */
@@ -59,6 +92,13 @@ final class TestCommand extends Command
             $this->testDatabaseImportWithInheritedOutput($output);
         } catch (Throwable $exception) {
             $stderr->writeln("Exception in testDatabaseImportWithInheritedOutput: {$exception}");
+            $failed = true;
+        }
+
+        try {
+            $this->testDatabaseImportWithRedirectedOutput();
+        } catch (Throwable $exception) {
+            $stderr->writeln("Exception in testDatabaseImportWithRedirectedOutput: {$exception}");
             $failed = true;
         }
 

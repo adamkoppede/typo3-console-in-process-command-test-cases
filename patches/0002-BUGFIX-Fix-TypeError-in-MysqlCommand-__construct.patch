@@ -1,0 +1,66 @@
+From 3ac1b983306343baf1fd3604576f82041033e2b4 Mon Sep 17 00:00:00 2001
+From: Adam Koppe <adam.koppe@3m5.de>
+Date: Wed, 19 Feb 2025 14:25:53 +0100
+Subject: [PATCH 2/2] [BUGFIX] Fix TypeError in MysqlCommand::__construct()
+
+When running the "database:import" console command via the
+symfony/console PHP API with an output implementation that isn't
+ConsoleOutput, the following PHP runtime TypeError occurred:
+
+    TypeError:
+        Helhum\Typo3Console\Database\Process\MysqlCommand::__construct():
+            Argument #2 ($output) must be of type ?Symfony\Component\Console\Output\ConsoleOutput,
+            Symfony\Component\Console\Output\StreamOutput given,
+            called in vendor/helhum/typo3-console/Classes/Console/Command/Database/DatabaseImportCommand.php on line 89
+            and defined in vendor/helhum/typo3-console/Classes/Console/Database/Process/MysqlCommand.php:38
+    Stack trace:
+        #0 vendor/helhum/typo3-console/Classes/Console/Command/Database/DatabaseImportCommand.php(89): Helhum\Typo3Console\Database\Process\MysqlCommand->__construct()
+        #1 vendor/symfony/console/Command/Command.php(298): Helhum\Typo3Console\Command\Database\DatabaseImportCommand->execute()
+        #2 Classes/TestCommand.php(68): Symfony\Component\Console\Command\Command->run()
+
+A full reproduction of the issue is available at
+https://github.com/adamkoppede/typo3-console-in-process-command-test-cases.
+---
+ Classes/Console/Database/Process/MysqlCommand.php | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/Classes/Console/Database/Process/MysqlCommand.php b/Classes/Console/Database/Process/MysqlCommand.php
+index 5959f369..e7846b0e 100644
+--- a/Classes/Console/Database/Process/MysqlCommand.php
++++ b/Classes/Console/Database/Process/MysqlCommand.php
+@@ -16,6 +16,8 @@ namespace Helhum\Typo3Console\Database\Process;
+ 
+ use Helhum\Typo3Console\Mvc\Cli\InteractiveProcess;
+ use Symfony\Component\Console\Output\ConsoleOutput;
++use Symfony\Component\Console\Output\ConsoleOutputInterface;
++use Symfony\Component\Console\Output\OutputInterface;
+ use Symfony\Component\Process\Process;
+ 
+ class MysqlCommand
+@@ -35,7 +37,7 @@ class MysqlCommand
+      */
+     private $output;
+ 
+-    public function __construct(array $dbConfig, ?ConsoleOutput $output = null)
++    public function __construct(array $dbConfig, ?OutputInterface $output = null)
+     {
+         $this->dbConfig = $dbConfig;
+         $this->output = $output ?: new ConsoleOutput(); // output being optional is @deprecated. Will become required in 6.0
+@@ -89,9 +91,12 @@ class MysqlCommand
+         if (!is_callable($outputCallback)) {
+             $outputCallback = function ($type, $data) {
+                 if (Process::OUT === $type) {
+-                    echo $data;
++                    $this->output->write($data);
+                 } elseif (Process::ERR === $type) {
+-                    $this->output->getErrorOutput()->write($data);
++                    $errorOutput = $this->output instanceof ConsoleOutputInterface
++                        ? $this->output->getErrorOutput()
++                        : $this->output;
++                    $errorOutput->write($data);
+                 }
+             };
+         }
+-- 
+2.43.0
+
