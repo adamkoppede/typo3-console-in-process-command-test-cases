@@ -1,4 +1,4 @@
-From 3ac1b983306343baf1fd3604576f82041033e2b4 Mon Sep 17 00:00:00 2001
+From 5c91b4d854e0b58a205b3fcf297526d80ba935ac Mon Sep 17 00:00:00 2001
 From: Adam Koppe <adam.koppe@3m5.de>
 Date: Wed, 19 Feb 2025 14:25:53 +0100
 Subject: [PATCH 2/2] [BUGFIX] Fix TypeError in MysqlCommand::__construct()
@@ -20,12 +20,15 @@ ConsoleOutput, the following PHP runtime TypeError occurred:
 
 A full reproduction of the issue is available at
 https://github.com/adamkoppede/typo3-console-in-process-command-test-cases.
+
+OutputInterface::OUTPUT_RAW is required to avoid going through the
+output formatter in Output::write().
 ---
  Classes/Console/Database/Process/MysqlCommand.php | 11 ++++++++---
  1 file changed, 8 insertions(+), 3 deletions(-)
 
 diff --git a/Classes/Console/Database/Process/MysqlCommand.php b/Classes/Console/Database/Process/MysqlCommand.php
-index 5959f369..e7846b0e 100644
+index 5959f369..86affb31 100644
 --- a/Classes/Console/Database/Process/MysqlCommand.php
 +++ b/Classes/Console/Database/Process/MysqlCommand.php
 @@ -16,6 +16,8 @@ namespace Helhum\Typo3Console\Database\Process;
@@ -51,7 +54,7 @@ index 5959f369..e7846b0e 100644
              $outputCallback = function ($type, $data) {
                  if (Process::OUT === $type) {
 -                    echo $data;
-+                    $this->output->write($data);
++                    $this->output->write($data, false, OutputInterface::OUTPUT_RAW);
                  } elseif (Process::ERR === $type) {
 -                    $this->output->getErrorOutput()->write($data);
 +                    $errorOutput = $this->output instanceof ConsoleOutputInterface

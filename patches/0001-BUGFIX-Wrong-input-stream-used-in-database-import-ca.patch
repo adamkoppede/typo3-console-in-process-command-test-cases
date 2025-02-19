@@ -1,4 +1,4 @@
-From 7203afbbc57c5564ece2a09bae11e221f526d368 Mon Sep 17 00:00:00 2001
+From cb29fb730c3d665ad323232586fdfc40c5cff24e Mon Sep 17 00:00:00 2001
 From: Adam Koppe <adam.koppe@3m5.de>
 Date: Wed, 19 Feb 2025 12:02:04 +0100
 Subject: [PATCH 1/2] [BUGFIX] Wrong input stream used in database:import

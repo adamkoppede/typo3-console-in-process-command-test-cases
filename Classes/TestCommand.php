@@ -77,6 +77,63 @@ final class TestCommand extends Command
         assert(fclose($outputStream));
     }
 
+    private function testSymfonyStyleInjectionInDatabaseImportWithInheritedOutput(OutputInterface $output): void
+    {
+        $sql = 'SELECT "<error>I shouldn\'t be styled because I\'m user data</error>";';
+
+        $commandRegistry = GeneralUtility::makeInstance(CommandRegistry::class);
+        $command = $commandRegistry->get('database:import');
+
+        $input = new ArrayInput(['--connection' => 'Default']);
+        $inputTextStream = fopen('php://temp', 'wb+');
+        assert($inputTextStream !== false);
+        $inputTextWritePos = 0;
+        while ($inputTextWritePos < strlen($sql)) {
+            $bytesWritten = fwrite($inputTextStream, substr($sql, $inputTextWritePos));
+            assert($bytesWritten !== false);
+            $inputTextWritePos += $bytesWritten;
+        }
+        assert(rewind($inputTextStream));
+        $input->setStream($inputTextStream);
+
+        $exitCode = $command->run($input, $output);
+        assert($exitCode === Command::SUCCESS);
+
+        assert(fclose($inputTextStream));
+    }
+
+    private function testSymfonyStyleInjectionInDatabaseImportWithRedirectedOutput(): void
+    {
+        $sql = 'SELECT "<error>I shouldn\'t be styled because I\'m user data</error>";';
+
+        $commandRegistry = GeneralUtility::makeInstance(CommandRegistry::class);
+        $command = $commandRegistry->get('database:import');
+
+        $input = new ArrayInput(['--connection' => 'Default']);
+        $inputStream = fopen('php://temp', 'wb+');
+        assert($inputStream !== false);
+        $inputTextWritePos = 0;
+        while ($inputTextWritePos < strlen($sql)) {
+            $bytesWritten = fwrite($inputStream, substr($sql, $inputTextWritePos));
+            assert($bytesWritten !== false);
+            $inputTextWritePos += $bytesWritten;
+        }
+        assert(rewind($inputStream));
+        $input->setStream($inputStream);
+
+        $outputStream = fopen('php://temp', 'wb+');
+        assert($outputStream !== false);
+
+        $exitCode = $command->run($input, new StreamOutput($outputStream));
+        assert($exitCode === Command::SUCCESS);
+        $output = stream_get_contents($outputStream, null, 0);
+        assert($output !== false);
+        assert('<error>I shouldn\'t be styled because I\'m user data</error>' === trim($output));
+
+        assert(fclose($inputStream));
+        assert(fclose($outputStream));
+    }
+
     /**
      * @return Command::SUCCESS|Command::FAILURE|Command::INVALID
      */
@@ -99,6 +156,20 @@ final class TestCommand extends Command
             $this->testDatabaseImportWithRedirectedOutput();
         } catch (Throwable $exception) {
             $stderr->writeln("Exception in testDatabaseImportWithRedirectedOutput: {$exception}");
+            $failed = true;
+        }
+
+        try {
+            $this->testSymfonyStyleInjectionInDatabaseImportWithInheritedOutput($output);
+        } catch (Throwable $exception) {
+            $stderr->writeln("Exception in testSymfonyStyleInjectionInDatabaseImportWithInheritedOutput: {$exception}");
+            $failed = true;
+        }
+
+        try {
+            $this->testSymfonyStyleInjectionInDatabaseImportWithRedirectedOutput();
+        } catch (Throwable $exception) {
+            $stderr->writeln("Exception in testSymfonyStyleInjectionInDatabaseImportWithRedirectedOutput: {$exception}");
             $failed = true;
         }
 
