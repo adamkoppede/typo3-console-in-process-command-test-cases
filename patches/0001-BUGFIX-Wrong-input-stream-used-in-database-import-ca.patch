@@ -1,0 +1,83 @@
+From 7203afbbc57c5564ece2a09bae11e221f526d368 Mon Sep 17 00:00:00 2001
+From: Adam Koppe <adam.koppe@3m5.de>
+Date: Wed, 19 Feb 2025 12:02:04 +0100
+Subject: [PATCH] [BUGFIX] Wrong input stream used in database:import called
+ via PHP-API
+
+The "database:import" console command used the wrong input stream when
+it is used with an input stream that isn't STDIN. The following concrete
+example hangs:
+
+    $commandRegistry = GeneralUtility::makeInstance(CommandRegistry::class);
+    $command = $commandRegistry->get('database:import');
+
+    $input = new ArrayInput(['--connection' => 'Default']);
+    $inputStream = fopen('/some.sql', 'b+');
+    assert($inputStream !== false);
+    $input->setStream($inputStream);
+
+    $exitCode = $command->run($input, new ConsoleOutput());
+    assert($exitCode === Command::SUCCESS);
+    assert(fclose($inputStream));
+
+A full reproduction of the issue is available at
+https://github.com/adamkoppede/typo3-console-in-process-command-test-cases.
+
+See: https://github.com/symfony/symfony/issues/37835#issuecomment-674386588
+---
+ Classes/Console/Command/Database/DatabaseImportCommand.php | 5 ++++-
+ Packages/SqlCommand/src/Command/SqlCommand.php             | 7 ++++++-
+ 2 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/Classes/Console/Command/Database/DatabaseImportCommand.php b/Classes/Console/Command/Database/DatabaseImportCommand.php
+index ea350312..72ba3b2b 100644
+--- a/Classes/Console/Command/Database/DatabaseImportCommand.php
++++ b/Classes/Console/Command/Database/DatabaseImportCommand.php
+@@ -19,6 +19,7 @@ use Helhum\Typo3Console\Database\Process\MysqlCommand;
+ use Symfony\Component\Console\Command\Command;
+ use Symfony\Component\Console\Input\InputInterface;
+ use Symfony\Component\Console\Input\InputOption;
++use Symfony\Component\Console\Input\StreamableInputInterface;
+ use Symfony\Component\Console\Output\OutputInterface;
+ 
+ class DatabaseImportCommand extends Command
+@@ -88,7 +89,9 @@ EOH
+         $mysqlCommand = new MysqlCommand($this->connectionConfiguration->build($connection), $output);
+         $exitCode = $mysqlCommand->mysql(
+             $interactive ? [] : ['--skip-column-names'],
+-            STDIN,
++            ($input instanceof StreamableInputInterface)
++                ? ($input->getStream() ?? STDIN)
++                : STDIN,
+             null,
+             $interactive
+         );
+diff --git a/Packages/SqlCommand/src/Command/SqlCommand.php b/Packages/SqlCommand/src/Command/SqlCommand.php
+index fe48b77a..b20ee2e2 100644
+--- a/Packages/SqlCommand/src/Command/SqlCommand.php
++++ b/Packages/SqlCommand/src/Command/SqlCommand.php
+@@ -21,6 +21,7 @@ use Symfony\Component\Console\Helper\Table;
+ use Symfony\Component\Console\Helper\TableStyle;
+ use Symfony\Component\Console\Input\InputInterface;
+ use Symfony\Component\Console\Input\InputOption;
++use Symfony\Component\Console\Input\StreamableInputInterface;
+ use Symfony\Component\Console\Output\OutputInterface;
+ 
+ class SqlCommand extends Command
+@@ -42,8 +43,12 @@ class SqlCommand extends Command
+ 
+     protected function execute(InputInterface $input, OutputInterface $output): int
+     {
++        $inputStream = ($input instanceof StreamableInputInterface)
++            ? ($input->getStream() ?? STDIN)
++            : STDIN;
++
+         $sql = '';
+-        while ($f = fgets(STDIN)) {
++        while ($f = fgets($inputStream)) {
+             $sql .= $f;
+         }
+ 
+-- 
+2.43.0
+

@@ -1,0 +1,39 @@
+{
+    "name": "example/typo3-console-in-process-command-test-cases",
+    "type": "typo3-cms-extension",
+    "require": {
+        "php": "~8.1.0 || ~8.2.0 || ~8.3.0 || ~8.4.0",
+        "symfony/console": "^5.4 || ^6.4 || ^7.2",
+        "typo3/cms-core": "^11.5 || ^12.4 || ^13.1",
+        "typo3/cms-composer-installers": "^4.0@rc || >=5.0",
+        "helhum/typo3-console": "^8.2",
+        "cweagans/composer-patches": "^1.7"
+    },
+    "require-dev": {
+        "vimeo/psalm": "^5.0 || ^6.0"
+    },
+    "license": "GPL-2.0-or-later",
+    "config": {
+        "allow-plugins": {
+            "typo3/cms-composer-installers": true,
+            "typo3/class-alias-loader": true,
+            "cweagans/composer-patches": true
+        },
+        "sort-packages": true
+    },
+    "extra": {
+        "typo3/cms": {
+            "extension-key": "example_typo3_console_in_process_command_test_cases"
+        },
+        "patches": {
+            "helhum/typo3-console": {
+                "[BUGFIX] Wrong input stream used in database:import called via PHP-API": "./patches/0001-BUGFIX-Wrong-input-stream-used-in-database-import-ca.patch"
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Example\\Typo3ConsoleInProcessCommandTestCases\\": "Classes/"
+        }
+    }
+}
